@@ -1,5 +1,4 @@
 import singer
-from singer import Transformer, metadata, utils
 
 from .streams import STREAM_OBJECTS
 
@@ -11,13 +10,9 @@ def sync(client, config, state):
         stream_object = stream_cls(client, config, state)
 
         if stream_object is None:
-            raise Exception(
-                "Attempted to sync unknown stream {}".format(stream_id))
+            raise Exception("Attempted to sync unknown stream {}".format(stream_id))
 
         LOGGER.info("Syncing stream: " + stream_id)
 
         for rec in stream_object.sync():
-            singer.write_record(
-                stream_id,
-                rec
-            )
+            singer.write_record(stream_id, rec)

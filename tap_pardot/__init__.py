@@ -2,16 +2,20 @@
 
 import singer
 from singer import utils
-from singer.catalog import write_catalog
 
-from .client import Client
-from .sync import sync
+from tap_pardot.client import Client
+from tap_pardot.sync import sync
 
 LOGGER = singer.get_logger()
 
 
-REQUIRED_CONFIG_KEYS = ["start_date", "refresh_token",
-                        "client_id", "client_secret", "business_unit_id"]
+REQUIRED_CONFIG_KEYS = [
+    "start_date",
+    "refresh_token",
+    "client_id",
+    "client_secret",
+    "business_unit_id",
+]
 
 
 @utils.handle_top_exception(LOGGER)
