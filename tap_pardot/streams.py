@@ -58,7 +58,7 @@ class Stream:
     def get_records(self):
         data = self.client.get(self.endpoint, **self.get_params())
 
-        if data["result"] is None or data["result"].get("total_results") == 0:
+        if data.get("result") is None or data["result"].get("total_results") == 0:
             return []
 
         records = data["result"][self.data_key]
