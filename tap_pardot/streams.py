@@ -69,11 +69,10 @@ class Stream:
             yield self.flatten_value_records(record)
 
     def flatten_value_records(self, record):
-        """ In case when data comes as a dict with 'value' key only.
-        """
+        """In case when data comes as a dict with 'value' key only."""
         for key, value in record.items():
-            if isinstance(value, dict) and 'value' in value:
-                record[key] = value['value']
+            if isinstance(value, dict) and "value" in value:
+                record[key] = value["value"]
         return record
 
     def check_order(self, current_bookmark_value):
@@ -179,8 +178,7 @@ class ComplexBookmarkStream(Stream):
         return defaults.get(key)
 
     def clear_bookmark(self, bookmark_key):
-        singer.bookmarks.clear_bookmark(
-            self.state, self.stream_name, bookmark_key)
+        singer.bookmarks.clear_bookmark(self.state, self.stream_name, bookmark_key)
         if self.emit:
             singer.write_state(self.state)
 
@@ -197,8 +195,7 @@ class ComplexBookmarkStream(Stream):
             singer.write_state(self.state)
 
     def sync_page(self):
-        raise NotImplementedError(
-            "ComplexBookmarkStreams need a custom sync method.")
+        raise NotImplementedError("ComplexBookmarkStreams need a custom sync method.")
 
 
 class NoUpdatedAtSortingStream(ComplexBookmarkStream):
@@ -322,8 +319,10 @@ class ChildStream(ComplexBookmarkStream):
         return {"offset": self.get_bookmark("offset")}
 
     def get_records(self, *parent_ids):
-        params = {self.parent_id_param: ",".join(
-            [str(x) for x in parent_ids]), **self.get_params()}
+        params = {
+            self.parent_id_param: ",".join([str(x) for x in parent_ids]),
+            **self.get_params(),
+        }
 
         data = self.client.post(self.endpoint, **params)
         self.update_bookmark("offset", params.get("offset", 0) + 200)
@@ -446,20 +445,22 @@ class Visits(ChildStream, NoUpdatedAtSortingStream):
     parent_id_param = "visitor_ids"
 
     def pre_sync(self):
-        self.parent_bookmark = self.get_bookmark('parent_bookmark')
+        self.parent_bookmark = self.get_bookmark("parent_bookmark")
 
         if self.parent_bookmark is None:
-            self.parent_bookmark = {"bookmarks": {
-                self.parent_class.stream_name: {"updated_at": self.get_bookmark('updated_at')}}}
+            self.parent_bookmark = {
+                "bookmarks": {
+                    self.parent_class.stream_name: {
+                        "updated_at": self.get_bookmark("updated_at")
+                    }
+                }
+            }
 
             self.update_bookmark("parent_bookmark", self.parent_bookmark)
         super(ChildStream, self).pre_sync()
 
     def fix_page_views(self, record):
-        page_views = (
-            record.get("visitor_page_views")
-            or {}
-        ).get("visitor_page_view")
+        page_views = (record.get("visitor_page_views") or {}).get("visitor_page_view")
         if isinstance(page_views, dict):
             record["visitor_page_views"]["visitor_page_view"] = [page_views]
 
@@ -548,13 +549,22 @@ STREAM_OBJECT_MAP = {
     if inspect.isclass(cls) and issubclass(cls, Stream) and cls.stream_name
 }
 STREAM_OBJECTS = [
-    (stream_name, STREAM_OBJECT_MAP.pop(stream_name)) for stream_name in
-    [
-        'prospect_accounts', 'prospects',  'campaigns',  'visitor_activities',
-        'visits', 'email_clicks', 'opportunities', 'users', 'visitors',
-        'lists', 'list_memberships'
+    (stream_name, STREAM_OBJECT_MAP.pop(stream_name))
+    for stream_name in [
+        "prospect_accounts",
+        "prospects",
+        "campaigns",
+        "visitor_activities",
+        "visits",
+        "email_clicks",
+        "opportunities",
+        "users",
+        "visitors",
+        "lists",
+        "list_memberships",
     ]
 ]
 if STREAM_OBJECT_MAP:
     raise RuntimeError(
-        f"streams found that is not part of the ordered STREAM_OBJECTS: {list(STREAM_OBJECT_MAP.keys())}")
+        f"streams found that is not part of the ordered STREAM_OBJECTS: {list(STREAM_OBJECT_MAP.keys())}"
+    )
