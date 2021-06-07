@@ -35,7 +35,6 @@ class PardotException(Exception):
 
 
 class Client:
-    api_version = 4
     access_token = None
     refresh_token = None
     client_id = None
@@ -60,6 +59,7 @@ class Client:
         self.client_secret = client_secret
         self.business_unit_id = business_unit_id
         self.requests_session = requests.Session()
+        self.api_version = 4
 
     def _get_auth_header(self):
         return {
@@ -89,6 +89,9 @@ class Client:
         response = self.requests_session.request(
             method, url, headers=self._get_auth_header(), params=params, data=data
         )
+        error, code = parse_error(response)
+        if error == "Your account is unable to use version 4 of the API.":
+            self.api_version = 3
 
         if response.status_code != 200:
             LOGGER.info(
@@ -96,7 +99,7 @@ class Client:
                 response.status_code,
                 response.text,
             )
-            error, code = parse_error(response)
+
             if "access_token is invalid" in error.lower() and code != 184:
                 code = 184
 
