@@ -90,7 +90,8 @@ class Client:
             method, url, headers=self._get_auth_header(), params=params, data=data
         )
         error, code = parse_error(response)
-        if error == "Your account is unable to use version 4 of the API.":
+        if code == 89:
+            # You have requested version 4 of the API, but this account must use version 3
             self.api_version = 3
 
         if response.status_code != 200:
