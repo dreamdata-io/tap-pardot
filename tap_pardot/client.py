@@ -50,7 +50,7 @@ class Client:
         client_id,
         client_secret,
         refresh_token,
-        access_token="dummy",
+        access_token=None,
         **kwargs,
     ):
         self.access_token = access_token
@@ -86,31 +86,29 @@ class Client:
             params,
         )
 
+        if self.access_token is None:
+            self._refresh_access_token()
+
         response = self.requests_session.request(
             method, url, headers=self._get_auth_header(), params=params, data=data
         )
+        if response.ok:
+            return response.json()
+
         error, code = parse_error(response)
         if code == 89:
             # You have requested version 4 of the API, but this account must use version 3
             self.api_version = 3
+        if code == 184:
+            self._refresh_access_token()
 
-        if response.status_code != 200:
-            LOGGER.info(
-                "%s: %s",
-                response.status_code,
-                response.text,
-            )
+        LOGGER.info(
+            "%s: %s",
+            response.status_code,
+            response.text,
+        )
 
-            if "access_token is invalid" in error.lower() and code != 184:
-                code = 184
-
-            if code == 184:
-                self._refresh_access_token()
-
-            raise PardotException(response)
-
-        response.raise_for_status()
-        return response.json()
+        raise PardotException(response)
 
     def _refresh_access_token(self):
         url = "https://login.salesforce.com/services/oauth2/token"
