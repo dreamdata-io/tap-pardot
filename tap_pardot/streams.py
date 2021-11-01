@@ -433,6 +433,56 @@ class Visitors(UpdatedAtReplicationStream):
             "only_identified": "false",
         }
 
+    def sync_page(self):
+        for rec in self.get_records():
+            current_bookmark_value = rec[self.replication_keys[0]]
+
+            if self._last_bookmark_value is None:
+                self._last_bookmark_value = current_bookmark_value
+
+            # This is possibly the most asinine edge-case/bug I've ever run into.
+            # In Pardot, for the visitors stream, there seems to _sometimes_ exist certain timespans for which the API
+            # returns data _an our before_ the specified time.
+            #
+            # To put it more literally, given the following cURL:
+            #
+            # curl -X GET -G 'https://pi.pardot.com/api/visitor/version/4/do/query' \
+            #   --data-urlencode 'updated_after=2020-11-01 01:00:00' \
+            #   --data 'sort_by=updated_at' \
+            #   --data 'sort_order=ascending' \
+            #   --data 'only_identified=false' \
+            #   --data 'limit=1' \
+            #   --header "Authorization: Bearer $TOKEN" \
+            #   --header "Pardot-Business-Unit-Id: $PBUID"
+            #
+            # The returned <visitor> will contain a <updated_at> sub-element, which will contain a datetime _before_
+            # the specified `updated_at` query parameter - in the case of 2020-11-01 01:00:00 for siteimprove_com, this
+            # was 2020-11-01 00:00:01.
+            #
+            # In effect, anytime the tap crosses into the 01:00:00-02:00:00 timerange, the API returns data in the
+            # 00:00:00-01:00:00 timerange.
+            # As a consequence of this, we're completely unable to get this data.
+            #
+            # This "quirk" is confirmed for the following timeranges for siteimprove_com:
+            #
+            #   2020-11-01 01:00:00 - 2020-11-01 02:00:00
+            #   2018-11-04 01:00:00 - 2018-11-04 02:00:00
+            #
+            # There are likely to be more timerages for siteimprove_com.
+            # It's uncertain whether this effects any other customers.
+            #
+            # This is insane, but what more can you expect from a billion dollar company, am I right?
+            if current_bookmark_value < self._last_bookmark_value:
+                singer.log_warning(
+                    "Detected out of order visitor, this is likely related to a bug in Pardot - see source code for more information."
+                )
+                continue
+
+            self._last_bookmark_value = current_bookmark_value
+
+            self.update_bookmark(current_bookmark_value)
+            yield rec
+
 
 class Visits(ChildStream, NoUpdatedAtSortingStream):
     stream_name = "visits"
