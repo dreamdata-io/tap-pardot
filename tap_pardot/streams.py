@@ -327,7 +327,11 @@ class ChildStream(ComplexBookmarkStream):
         data = self.client.post(self.endpoint, **params)
         self.update_bookmark("offset", params.get("offset", 0) + 200)
 
-        if data["result"] is None or data["result"].get("total_results") == 0:
+        if (
+            data["result"] is None
+            or data["result"].get("total_results") == 0
+            or data["result"].get(self.data_key) == None
+        ):
             return []
 
         records = data["result"][self.data_key]
