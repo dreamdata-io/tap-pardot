@@ -33,6 +33,8 @@ class PardotException(Exception):
 
         super().__init__(message)
 
+class InvalidCredentials(Exception):
+    pass
 
 class Client:
     access_token = None
@@ -122,6 +124,11 @@ class Client:
         response = self.requests_session.post(url, data=data, headers=headers)
         data = response.json()
         self.access_token = data.get("access_token")
+
+        if response.status_code == 400 and data.get("error") == "invalid_grant":
+            error = data.get("error")
+            message = data.get("error_description")
+            raise InvalidCredentials(f"Invalid Credentials Error: {error} Message: {message}")
 
         if not self.access_token:
             raise Exception(
