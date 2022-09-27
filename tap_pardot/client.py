@@ -119,11 +119,13 @@ class Client:
             "refresh_token": self.refresh_token,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        response = self.requests_session.post(url, data=data, headers=headers).json()
-        self.access_token = response.get("access_token")
+        response = self.requests_session.post(url, data=data, headers=headers)
+        data = response.json()
+        self.access_token = data.get("access_token")
+
         if not self.access_token:
             raise Exception(
-                f"Failed to refresh token, status:{response.status_code}, content: {response.text}"
+                f"Failed to refresh token, status: {response.status_code}, content: {response.text}"
             )
 
     def describe(self, endpoint, **kwargs):
