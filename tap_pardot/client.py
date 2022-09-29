@@ -33,8 +33,6 @@ class PardotException(Exception):
 
         super().__init__(message)
 
-class InvalidCredentials(Exception):
-    pass
 
 class Client:
     access_token = None
@@ -121,18 +119,11 @@ class Client:
             "refresh_token": self.refresh_token,
         }
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
-        response = self.requests_session.post(url, data=data, headers=headers)
-        data = response.json()
-        self.access_token = data.get("access_token")
-
-        if response.status_code == 400 and data.get("error") == "invalid_grant":
-            error = data.get("error")
-            message = data.get("error_description")
-            raise InvalidCredentials(f"Invalid Credentials Error: {error} Message: {message}")
-
+        response = self.requests_session.post(url, data=data, headers=headers).json()
+        self.access_token = response.get("access_token")
         if not self.access_token:
             raise Exception(
-                f"Failed to refresh token, status: {response.status_code}, content: {response.text}"
+                f"Failed to refresh token, status:{response.status_code}, content: {response.text}"
             )
 
     def describe(self, endpoint, **kwargs):
