@@ -3,8 +3,6 @@ import traceback
 import singer
 import sys
 
-from tap_pardot.client import InvalidCredentials
-
 LOGGER = singer.get_logger()
 
 
@@ -108,15 +106,6 @@ class Stream:
                 for rec in self.sync_page():
                     records_synced += 1
                     yield rec
-
-        except InvalidCredentials as e:
-            LOGGER.error(
-                "exception: %s \n traceback: %s",
-                e,
-                traceback.format_exc(),
-            )
-            sys.exit(5)
-
         except Exception as exc:
             LOGGER.error(
                 "exception: %s \n traceback: %s",
