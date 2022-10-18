@@ -110,14 +110,6 @@ class Client:
 
         raise PardotException(response)
 
-    @backoff.on_exception(
-        backoff.expo,
-        (
-            PardotException,
-        ),
-        jitter=None,
-        max_tries=5,
-    )
     def _refresh_access_token(self):
         url = "https://login.salesforce.com/services/oauth2/token"
         data = {
@@ -131,6 +123,10 @@ class Client:
         response = self.requests_session.post(url, data=data, headers=headers)
         self.access_token = response.json().get("access_token")
         if not self.access_token:
+            LOGGER.warning(
+                "failed to refresh token: %s",
+                response.json()
+            )
             raise PardotException(response)
 
     def describe(self, endpoint, **kwargs):
