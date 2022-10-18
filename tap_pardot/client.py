@@ -14,7 +14,7 @@ def parse_error(response: requests.Response) -> Tuple[str, int]:
     code: int
     if response.headers.get("content-type") != "application/json":
         code = response.status_code
-        error = "PardotAPIError"
+        error = "PardotAPIError: " + response.text
     else:
         data: Dict = response.json()
         code = cast(int, data.get("@attributes", {}).get("err_code"))
