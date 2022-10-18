@@ -110,14 +110,6 @@ class Client:
 
         raise PardotException(response)
 
-    @backoff.on_exception(
-        backoff.expo,
-        (
-            PardotException,
-        ),
-        jitter=None,
-        max_tries=5,
-    )
     def _refresh_access_token(self):
         url = "https://login.salesforce.com/services/oauth2/token"
         data = {
