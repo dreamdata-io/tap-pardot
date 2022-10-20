@@ -146,7 +146,6 @@ class IdReplicationStream(Stream):
 
     def get_params(self):
         return {
-            "created_after": self.config["start_date"],
             "id_greater_than": self.get_bookmark(),
             "sort_by": "id",
             "sort_order": "ascending",
