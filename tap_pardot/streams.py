@@ -418,7 +418,7 @@ class EmailClicks(IdReplicationStream):
     is_dynamic = False
 
 
-class VisitorActivities(IdReplicationStream):
+class VisitorActivities(CreatedAtReplicationStream):
     stream_name = "visitor_activities"
     data_key = "visitor_activity"
     endpoint = "visitorActivity"
@@ -428,7 +428,7 @@ class VisitorActivities(IdReplicationStream):
     filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
 
     def get_params(self):
-        p = IdReplicationStream.get_params(self)
+        p = CreatedAtReplicationStream.get_params(self)
         p.update(type=self.filter_types)
         return p 
 
