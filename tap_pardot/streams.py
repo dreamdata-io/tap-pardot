@@ -396,6 +396,15 @@ class VisitorActivities(IdReplicationStream):
     stream_name = "visitor_activities"
     data_key = "visitor_activity"
     endpoint = "visitorActivity"
+    # We've encountered a situation where we have been unable to finish the sync due
+    # to fetching too much data. Data Sciense is only using some types of visitor 
+    # activities. Hence, we can filter out the used ones only.
+    filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
+
+    def get_params(self):
+        p = IdReplicationStream.get_params(self)
+        p.update(type=self.filter_types)
+        return p 
 
     is_dynamic = False
 
