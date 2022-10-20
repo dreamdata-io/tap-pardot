@@ -14,7 +14,7 @@ def parse_error(response: requests.Response) -> Tuple[str, int]:
     code: int
     if response.headers.get("content-type") != "application/json":
         code = response.status_code
-        error = "PardotAPIError"
+        error = "PardotAPIError: " + response.raw
     else:
         data: Dict = response.json()
         code = cast(int, data.get("@attributes", {}).get("err_code"))
@@ -32,6 +32,9 @@ class PardotException(Exception):
         self.raw = response.text
 
         super().__init__(message)
+
+class InvalidCredentials(Exception):
+    pass
 
 
 class Client:
@@ -122,6 +125,14 @@ class Client:
         headers = {"Content-Type": "application/x-www-form-urlencoded"}
         response = self.requests_session.post(url, data=data, headers=headers)
         self.access_token = response.json().get("access_token")
+
+        response = self.requests_session.post(url, data=data, headers=headers)
+        data = response.json()
+
+        if response.status_code == 400 and data.get("error") == "invalid_grant":
+            raise InvalidCredentials(f"Invalid Credentials: {data}")
+
+        self.access_token = data.get("access_token")
         if not self.access_token:
             LOGGER.warning(
                 "failed to refresh token: %s",
