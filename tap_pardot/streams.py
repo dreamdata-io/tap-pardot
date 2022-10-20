@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import inspect
 import traceback
 import singer
@@ -148,6 +149,32 @@ class IdReplicationStream(Stream):
         return {
             "id_greater_than": self.get_bookmark(),
             "sort_by": "id",
+            "sort_order": "ascending",
+        }
+
+
+class CreatedAtReplicationStream(Stream):
+    """
+    Streams where records are immutable and can only be sorted by created_at.
+
+    If no config is provided, it will try to fetch 10 years worth of data
+
+    Syncing mechanism:
+
+    - use bookmark to keep track of the created_at
+    - sync records since the last bookmarked created_at
+    """
+
+    replication_keys = ["created_at"]
+    replication_method = "INCREMENTAL"
+
+    def get_default_start(self):
+        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    def get_params(self):
+        return {
+            "created_after": self.get_bookmark(),
+            "sort_by": "created_at",
             "sort_order": "ascending",
         }
 
