@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 import inspect
 import traceback
 import singer
@@ -146,9 +147,34 @@ class IdReplicationStream(Stream):
 
     def get_params(self):
         return {
-            "created_after": self.config["start_date"],
             "id_greater_than": self.get_bookmark(),
             "sort_by": "id",
+            "sort_order": "ascending",
+        }
+
+
+class CreatedAtReplicationStream(Stream):
+    """
+    Streams where records are immutable and can only be sorted by created_at.
+
+    If no config is provided, it will try to fetch 10 years worth of data
+
+    Syncing mechanism:
+
+    - use bookmark to keep track of the created_at
+    - sync records since the last bookmarked created_at
+    """
+
+    replication_keys = ["created_at"]
+    replication_method = "INCREMENTAL"
+
+    def get_default_start(self):
+        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    def get_params(self):
+        return {
+            "created_after": self.get_bookmark(),
+            "sort_by": "created_at",
             "sort_order": "ascending",
         }
 
@@ -392,10 +418,19 @@ class EmailClicks(IdReplicationStream):
     is_dynamic = False
 
 
-class VisitorActivities(IdReplicationStream):
+class VisitorActivities(CreatedAtReplicationStream):
     stream_name = "visitor_activities"
     data_key = "visitor_activity"
     endpoint = "visitorActivity"
+    # We've encountered a situation where we have been unable to finish the sync due
+    # to fetching too much data. Data Sciense is only using some types of visitor 
+    # activities. Hence, we can filter out the used ones only.
+    filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
+
+    def get_params(self):
+        p = CreatedAtReplicationStream.get_params(self)
+        p.update(type=self.filter_types)
+        return p 
 
     is_dynamic = False
 
