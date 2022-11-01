@@ -442,6 +442,43 @@ class VisitorActivities(CreatedAtReplicationStream):
 
         return p 
 
+    def sync(self):
+        self.pre_sync()
+
+        try:
+            now = datetime.now()
+
+            # Since we're now synchronizing visitor activities in timed windows, we need to account
+            # for the case where a given window has no data.
+            while True:
+                # Since the loop in practice relies on the created_at found in the bookmarks, we
+                # need to actually short circuit break when there are no more records.
+                n = 0
+
+                for rec in self.sync_page():
+                    n += 1
+                    yield rec
+
+                if n == 0 and datetime.strptime(self.get_params()["created_after"], self.datetime_format) < now:
+                    break
+        except InvalidCredentials as e:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                e,
+                traceback.format_exc(),
+            )
+            sys.exit(5)
+        except Exception as exc:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                exc,
+                traceback.format_exc(),
+            )
+            self.post_sync()
+            sys.exit(1)
+
+        self.post_sync()
+
     is_dynamic = False
 
 
