@@ -426,10 +426,20 @@ class VisitorActivities(CreatedAtReplicationStream):
     # to fetching too much data. Data Sciense is only using some types of visitor 
     # activities. Hence, we can filter out the used ones only.
     filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
+    datetime_format = "%Y-%m-%d %H:%M:%S"
 
     def get_params(self):
         p = CreatedAtReplicationStream.get_params(self)
-        p.update(type=self.filter_types)
+
+        # In order to avoid timeouts, we need to drasticaly limit the amount of activities that we
+        # ask Pardot to process per request.
+        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(days=7)
+
+        p.update(
+            type=self.filter_types,
+            created_before=cb.strftime(self.datetime_format)
+        )
+
         return p 
 
     is_dynamic = False
