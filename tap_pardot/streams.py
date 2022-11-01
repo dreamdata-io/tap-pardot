@@ -459,7 +459,7 @@ class VisitorActivities(CreatedAtReplicationStream):
                     n += 1
                     yield rec
 
-                if n == 0 and datetime.strptime(self.get_params()["created_after"], self.datetime_format) < now:
+                if n == 0 and now < datetime.strptime(self.get_params()["created_before"], self.datetime_format):
                     break
         except InvalidCredentials as e:
             LOGGER.error(
