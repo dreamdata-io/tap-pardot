@@ -169,7 +169,7 @@ class CreatedAtReplicationStream(Stream):
     replication_method = "INCREMENTAL"
 
     def get_default_start(self):
-        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%d %H:%M:%S')
 
     def get_params(self):
         return {
