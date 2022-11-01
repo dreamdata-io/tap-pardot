@@ -501,7 +501,7 @@ class Visitors(UpdatedAtReplicationStream):
 
             # This is possibly the most asinine edge-case/bug I've ever run into.
             # In Pardot, for the visitors stream, there seems to _sometimes_ exist certain timespans for which the API
-            # returns data _an our before_ the specified time.
+            # returns data _an hour before_ the specified time.
             #
             # To put it more literally, given the following cURL:
             #
@@ -527,7 +527,7 @@ class Visitors(UpdatedAtReplicationStream):
             #   2020-11-01 01:00:00 - 2020-11-01 02:00:00
             #   2018-11-04 01:00:00 - 2018-11-04 02:00:00
             #
-            # There are likely to be more timerages for siteimprove_com.
+            # There are likely to be more timeranges for siteimprove_com.
             # It's uncertain whether this effects any other customers.
             #
             # This is insane, but what more can you expect from a billion dollar company, am I right?
