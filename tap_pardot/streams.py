@@ -169,7 +169,7 @@ class CreatedAtReplicationStream(Stream):
     replication_method = "INCREMENTAL"
 
     def get_default_start(self):
-        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%dT%H:%M:%SZ')
+        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%d %H:%M:%S')
 
     def get_params(self):
         return {
@@ -426,11 +426,58 @@ class VisitorActivities(CreatedAtReplicationStream):
     # to fetching too much data. Data Sciense is only using some types of visitor 
     # activities. Hence, we can filter out the used ones only.
     filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
+    datetime_format = "%Y-%m-%d %H:%M:%S"
 
     def get_params(self):
         p = CreatedAtReplicationStream.get_params(self)
-        p.update(type=self.filter_types)
+
+        # In order to avoid timeouts, we need to drasticaly limit the amount of activities that we
+        # ask Pardot to process per request.
+        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(days=7)
+
+        p.update(
+            type=self.filter_types,
+            created_before=cb.strftime(self.datetime_format)
+        )
+
         return p 
+
+    def sync(self):
+        self.pre_sync()
+
+        try:
+            now = datetime.now()
+
+            # Since we're now synchronizing visitor activities in timed windows, we need to account
+            # for the case where a given window has no data.
+            while True:
+                # Since the loop in practice relies on the created_at found in the bookmarks, we
+                # need to actually short circuit break when there are no more records.
+                n = 0
+
+                for rec in self.sync_page():
+                    n += 1
+                    yield rec
+
+                if n == 0 and now < datetime.strptime(self.get_params()["created_before"], self.datetime_format):
+                    break
+        except InvalidCredentials as e:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                e,
+                traceback.format_exc(),
+            )
+            sys.exit(5)
+        except Exception as exc:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                exc,
+                traceback.format_exc(),
+            )
+            self.post_sync()
+            sys.exit(1)
+
+        self.post_sync()
 
     is_dynamic = False
 
@@ -491,7 +538,7 @@ class Visitors(UpdatedAtReplicationStream):
 
             # This is possibly the most asinine edge-case/bug I've ever run into.
             # In Pardot, for the visitors stream, there seems to _sometimes_ exist certain timespans for which the API
-            # returns data _an our before_ the specified time.
+            # returns data _an hour before_ the specified time.
             #
             # To put it more literally, given the following cURL:
             #
@@ -517,7 +564,7 @@ class Visitors(UpdatedAtReplicationStream):
             #   2020-11-01 01:00:00 - 2020-11-01 02:00:00
             #   2018-11-04 01:00:00 - 2018-11-04 02:00:00
             #
-            # There are likely to be more timerages for siteimprove_com.
+            # There are likely to be more timeranges for siteimprove_com.
             # It's uncertain whether this effects any other customers.
             #
             # This is insane, but what more can you expect from a billion dollar company, am I right?
