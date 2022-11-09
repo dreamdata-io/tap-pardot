@@ -227,10 +227,34 @@ class UpdatedAtReplicationStream(Stream):
             # the last record of page N has the same updated_at value as the first record of page N+1.
             # Since Pardot's smallest unit of time is seconds, we simply deduct one second, guaranteeing
             # that, should page N+1 fail, then we will never lose any records.
-            bookmark = datetime.strptime(bookmark, "%Y-%m-%d %H:%M:%S") - timedelta(seconds=1)
+            bookmark = datetime.strptime(bookmark, "%Y-%m-%d %H:%M:%S") - timedelta(
+                seconds=1
+            )
             bookmark = bookmark.strftime("%Y-%m-%d %H:%M:%S")
 
             self.update_bookmark(bookmark)
+
+    def sync(self):
+        self.pre_sync()
+        try:
+            yield from self.sync_page()
+        except InvalidCredentials as e:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                e,
+                traceback.format_exc(),
+            )
+            sys.exit(5)
+        except Exception as exc:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                exc,
+                traceback.format_exc(),
+            )
+            self.post_sync()
+            sys.exit(1)
+
+        self.post_sync()
 
 
 class ComplexBookmarkStream(Stream):
