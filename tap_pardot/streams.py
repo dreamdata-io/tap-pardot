@@ -169,7 +169,7 @@ class CreatedAtReplicationStream(Stream):
     replication_method = "INCREMENTAL"
 
     def get_default_start(self):
-        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%d %H:%M:%S')
+        return (datetime.now() - timedelta(days=10 * 365)).strftime("%Y-%m-%d %H:%M:%S")
 
     def get_params(self):
         return {
@@ -199,6 +199,62 @@ class UpdatedAtReplicationStream(Stream):
             "sort_by": "updated_at",
             "sort_order": "ascending",
         }
+
+    def sync_page(self):
+        bookmark = self.get_bookmark()
+        params = {
+            **self.get_params(),
+            "offset": 0,
+        }
+
+        while True:
+            data = self.client.get(self.endpoint, **params)
+            records = data["result"].get(self.data_key)
+
+            if not records:
+                break
+            if isinstance(records, dict):
+                records = [records]
+
+            for record in sorted(records, key=lambda x: x[self.replication_keys[0]]):
+                bookmark = record[self.replication_keys[0]]
+
+                yield self.flatten_value_records(record)
+
+            params["offset"] += 200
+
+            # Since the updated_after query filter is exclusive, we need to consider the case where
+            # the last record of page N has the same updated_at value as the first record of page N+1.
+            # Since Pardot's smallest unit of time is seconds, we simply deduct one second, guaranteeing
+            # that, should page N+1 fail, then we will never lose any records.
+            bookmark = datetime.strptime(bookmark, "%Y-%m-%d %H:%M:%S") - timedelta(
+                seconds=1
+            )
+            bookmark = bookmark.strftime("%Y-%m-%d %H:%M:%S")
+
+            self.update_bookmark(bookmark)
+
+    def sync(self):
+        self.pre_sync()
+        try:
+            yield from self.sync_page()
+        except InvalidCredentials as e:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                e,
+                traceback.format_exc(),
+            )
+            sys.exit(5)
+        except Exception as exc:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                exc,
+                traceback.format_exc(),
+            )
+            self.post_sync()
+            sys.exit(1)
+
+        self.post_sync()
 
 
 class ComplexBookmarkStream(Stream):
@@ -423,7 +479,7 @@ class VisitorActivities(CreatedAtReplicationStream):
     data_key = "visitor_activity"
     endpoint = "visitorActivity"
     # We've encountered a situation where we have been unable to finish the sync due
-    # to fetching too much data. Data Sciense is only using some types of visitor 
+    # to fetching too much data. Data Sciense is only using some types of visitor
     # activities. Hence, we can filter out the used ones only.
     filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
     datetime_format = "%Y-%m-%d %H:%M:%S"
@@ -433,14 +489,15 @@ class VisitorActivities(CreatedAtReplicationStream):
 
         # In order to avoid timeouts, we need to drasticaly limit the amount of activities that we
         # ask Pardot to process per request.
-        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(days=7)
-
-        p.update(
-            type=self.filter_types,
-            created_before=cb.strftime(self.datetime_format)
+        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(
+            days=7
         )
 
-        return p 
+        p.update(
+            type=self.filter_types, created_before=cb.strftime(self.datetime_format)
+        )
+
+        return p
 
     def sync(self):
         self.pre_sync()
@@ -459,7 +516,9 @@ class VisitorActivities(CreatedAtReplicationStream):
                     n += 1
                     yield rec
 
-                if n == 0 and now < datetime.strptime(self.get_params()["created_before"], self.datetime_format):
+                if n == 0 and now < datetime.strptime(
+                    self.get_params()["created_before"], self.datetime_format
+                ):
                     break
         except InvalidCredentials as e:
             LOGGER.error(
