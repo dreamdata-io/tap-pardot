@@ -223,6 +223,13 @@ class UpdatedAtReplicationStream(Stream):
 
             params["offset"] += 200
 
+            # Since the updated_after query filter is exclusive, we need to consider the case where
+            # the last record of page N has the same updated_at value as the first record of page N+1.
+            # Since Pardot's smallest unit of time is seconds, we simply deduct one second, guaranteeing
+            # that, should page N+1 fail, then we will never lose any records.
+            bookmark = datetime.strptime(bookmark, "%Y-%m-%d %H:%M:%S") - timedelta(seconds=1)
+            bookmark = bookmark.strftime("%Y-%m-%d %H:%M:%S")
+
             self.update_bookmark(bookmark)
 
 
