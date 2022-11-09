@@ -169,7 +169,7 @@ class CreatedAtReplicationStream(Stream):
     replication_method = "INCREMENTAL"
 
     def get_default_start(self):
-        return (datetime.now() - timedelta(days=10*365)).strftime('%Y-%m-%d %H:%M:%S')
+        return (datetime.now() - timedelta(days=10 * 365)).strftime("%Y-%m-%d %H:%M:%S")
 
     def get_params(self):
         return {
@@ -455,7 +455,7 @@ class VisitorActivities(CreatedAtReplicationStream):
     data_key = "visitor_activity"
     endpoint = "visitorActivity"
     # We've encountered a situation where we have been unable to finish the sync due
-    # to fetching too much data. Data Sciense is only using some types of visitor 
+    # to fetching too much data. Data Sciense is only using some types of visitor
     # activities. Hence, we can filter out the used ones only.
     filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
     datetime_format = "%Y-%m-%d %H:%M:%S"
@@ -465,14 +465,15 @@ class VisitorActivities(CreatedAtReplicationStream):
 
         # In order to avoid timeouts, we need to drasticaly limit the amount of activities that we
         # ask Pardot to process per request.
-        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(days=7)
-
-        p.update(
-            type=self.filter_types,
-            created_before=cb.strftime(self.datetime_format)
+        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(
+            days=7
         )
 
-        return p 
+        p.update(
+            type=self.filter_types, created_before=cb.strftime(self.datetime_format)
+        )
+
+        return p
 
     def sync(self):
         self.pre_sync()
@@ -491,7 +492,9 @@ class VisitorActivities(CreatedAtReplicationStream):
                     n += 1
                     yield rec
 
-                if n == 0 and now < datetime.strptime(self.get_params()["created_before"], self.datetime_format):
+                if n == 0 and now < datetime.strptime(
+                    self.get_params()["created_before"], self.datetime_format
+                ):
                     break
         except InvalidCredentials as e:
             LOGGER.error(

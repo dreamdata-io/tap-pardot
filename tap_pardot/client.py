@@ -134,10 +134,7 @@ class Client:
 
         self.access_token = data.get("access_token")
         if not self.access_token:
-            LOGGER.warning(
-                "failed to refresh token: %s",
-                response.json()
-            )
+            LOGGER.warning("failed to refresh token: %s", response.json())
             raise PardotException(response)
 
     def describe(self, endpoint, **kwargs):
