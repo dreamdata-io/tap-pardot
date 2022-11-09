@@ -200,6 +200,31 @@ class UpdatedAtReplicationStream(Stream):
             "sort_order": "ascending",
         }
 
+    def sync_page(self):
+        bookmark = self.get_bookmark()
+        params = {
+            **self.get_params(),
+            "offset": 0,
+        }
+
+        while True:
+            data = self.client.get(self.endpoint, **params)
+            records = data["result"].get(self.data_key)
+
+            if not records:
+                break
+            if isinstance(records, dict):
+                records = [records]
+
+            for record in sorted(records, key=lambda x: x[self.replication_keys[0]]):
+                bookmark = record[self.replication_keys[0]]
+
+                yield self.flatten_value_records(record)
+
+            params["offset"] += 200
+
+            self.update_bookmark(bookmark)
+
 
 class ComplexBookmarkStream(Stream):
     """Streams that need to keep track of more than 1 bookmark."""
@@ -496,31 +521,6 @@ class Prospects(UpdatedAtReplicationStream):
     endpoint = "prospect"
 
     is_dynamic = False
-
-    def sync_page(self):
-        bookmark = self.get_bookmark()
-        params = {
-            **self.get_params(),
-            "offset": 0,
-        }
-
-        while True:
-            data = self.client.get(self.endpoint, **params)
-            records = data["result"].get(self.data_key)
-
-            if not records:
-                break
-            if isinstance(records, dict):
-                records = [records]
-
-            for record in sorted(records, key=lambda x: x[self.replication_keys[0]]):
-                bookmark = record[self.replication_keys[0]]
-
-                yield self.flatten_value_records(record)
-
-            params["offset"] += 200
-
-            self.update_bookmark(bookmark)
 
 
 class Opportunities(NoUpdatedAtSortingStream):
