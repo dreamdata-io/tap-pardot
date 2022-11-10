@@ -98,7 +98,7 @@ class Client:
         )
 
         if self.num_requests >= REQUEST_LIMIT:
-            raise RateLimitError()
+            raise RateLimitException(f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort.")
 
         if self.access_token is None:
             self._refresh_access_token()
