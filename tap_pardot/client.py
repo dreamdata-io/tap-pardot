@@ -8,6 +8,10 @@ LOGGER = singer.get_logger()
 AUTH_URL = "https://pi.pardot.com/api/login/version/3"
 ENDPOINT_BASE = "https://pi.pardot.com/api/"
 
+# Smallest Pardot package has a 25k request limit, so we leave some room
+# for other integrations to function.
+REQUEST_LIMIT = 20000
+
 
 def parse_error(response: requests.Response) -> Tuple[str, int]:
     error: str
@@ -36,6 +40,8 @@ class PardotException(Exception):
 class InvalidCredentials(Exception):
     pass
 
+class RateLimitException(Exception):
+    pass
 
 class Client:
     access_token = None
@@ -46,6 +52,8 @@ class Client:
 
     get_url = "{}/version/{}/do/query"
     describe_url = "{}/version/{}/do/describe"
+
+    num_requests = 0
 
     def __init__(
         self,
@@ -89,8 +97,13 @@ class Client:
             params,
         )
 
+        if self.num_requests >= REQUEST_LIMIT:
+            raise RateLimitException(f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort.")
+
         if self.access_token is None:
             self._refresh_access_token()
+
+        self.num_requests += 1
 
         response = self.requests_session.request(
             method, url, headers=self._get_auth_header(), params=params, data=data
