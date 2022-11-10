@@ -200,62 +200,6 @@ class UpdatedAtReplicationStream(Stream):
             "sort_order": "ascending",
         }
 
-    def sync_page(self):
-        bookmark = self.get_bookmark()
-        params = {
-            **self.get_params(),
-            "offset": 0,
-        }
-
-        while True:
-            data = self.client.get(self.endpoint, **params)
-            records = data["result"].get(self.data_key)
-
-            if not records:
-                break
-            if isinstance(records, dict):
-                records = [records]
-
-            for record in sorted(records, key=lambda x: x[self.replication_keys[0]]):
-                bookmark = record[self.replication_keys[0]]
-
-                yield self.flatten_value_records(record)
-
-            params["offset"] += 200
-
-            # Since the updated_after query filter is exclusive, we need to consider the case where
-            # the last record of page N has the same updated_at value as the first record of page N+1.
-            # Since Pardot's smallest unit of time is seconds, we simply deduct one second, guaranteeing
-            # that, should page N+1 fail, then we will never lose any records.
-            bookmark = datetime.strptime(bookmark, "%Y-%m-%d %H:%M:%S") - timedelta(
-                seconds=1
-            )
-            bookmark = bookmark.strftime("%Y-%m-%d %H:%M:%S")
-
-            self.update_bookmark(bookmark)
-
-    def sync(self):
-        self.pre_sync()
-        try:
-            yield from self.sync_page()
-        except InvalidCredentials as e:
-            LOGGER.error(
-                "exception: %s \n traceback: %s",
-                e,
-                traceback.format_exc(),
-            )
-            sys.exit(5)
-        except Exception as exc:
-            LOGGER.error(
-                "exception: %s \n traceback: %s",
-                exc,
-                traceback.format_exc(),
-            )
-            self.post_sync()
-            sys.exit(1)
-
-        self.post_sync()
-
 
 class ComplexBookmarkStream(Stream):
     """Streams that need to keep track of more than 1 bookmark."""
@@ -555,6 +499,62 @@ class Prospects(UpdatedAtReplicationStream):
     endpoint = "prospect"
 
     is_dynamic = False
+
+    def sync_page(self):
+        bookmark = self.get_bookmark()
+        params = {
+            **self.get_params(),
+            "offset": 0,
+        }
+
+        while True:
+            data = self.client.get(self.endpoint, **params)
+            records = data["result"].get(self.data_key)
+
+            if not records:
+                break
+            if isinstance(records, dict):
+                records = [records]
+
+            for record in sorted(records, key=lambda x: x[self.replication_keys[0]]):
+                bookmark = record[self.replication_keys[0]]
+
+                yield self.flatten_value_records(record)
+
+            params["offset"] += 200
+
+            # Since the updated_after query filter is exclusive, we need to consider the case where
+            # the last record of page N has the same updated_at value as the first record of page N+1.
+            # Since Pardot's smallest unit of time is seconds, we simply deduct one second, guaranteeing
+            # that, should page N+1 fail, then we will never lose any records.
+            bookmark = datetime.strptime(bookmark, "%Y-%m-%d %H:%M:%S") - timedelta(
+                seconds=1
+            )
+            bookmark = bookmark.strftime("%Y-%m-%d %H:%M:%S")
+
+            self.update_bookmark(bookmark)
+
+    def sync(self):
+        self.pre_sync()
+        try:
+            yield from self.sync_page()
+        except InvalidCredentials as e:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                e,
+                traceback.format_exc(),
+            )
+            sys.exit(5)
+        except Exception as exc:
+            LOGGER.error(
+                "exception: %s \n traceback: %s",
+                exc,
+                traceback.format_exc(),
+            )
+            self.post_sync()
+            sys.exit(1)
+
+        self.post_sync()
 
 
 class Opportunities(NoUpdatedAtSortingStream):
