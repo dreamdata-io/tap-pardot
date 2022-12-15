@@ -423,7 +423,7 @@ class VisitorActivities(CreatedAtReplicationStream):
     data_key = "visitor_activity"
     endpoint = "visitorActivity"
     # We've encountered a situation where we have been unable to finish the sync due
-    # to fetching too much data. Data Sciense is only using some types of visitor
+    # to fetching too much data. Data science is only using some types of visitor
     # activities. Hence, we can filter out the used ones only.
     filter_types = "1,2,4,6,17,21,24,25,26,27,28,29,34"
     datetime_format = "%Y-%m-%d %H:%M:%S"
@@ -431,7 +431,7 @@ class VisitorActivities(CreatedAtReplicationStream):
     def get_params(self):
         p = CreatedAtReplicationStream.get_params(self)
 
-        # In order to avoid timeouts, we need to drasticaly limit the amount of activities that we
+        # In order to avoid timeouts, we need to drastically limit the amount of activities that we
         # ask Pardot to process per request.
         cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(
             days=7
