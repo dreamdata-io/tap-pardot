@@ -464,6 +464,9 @@ class VisitorActivities(CreatedAtReplicationStream):
                     self.get_params()["created_before"], self.datetime_format
                 ):
                     break
+                if n == 0:
+                    self.update_bookmark(self.get_params()["created_before"])
+
         except InvalidCredentials as e:
             LOGGER.error(
                 "exception: %s \n traceback: %s",
