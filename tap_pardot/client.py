@@ -37,11 +37,14 @@ class PardotException(Exception):
 
         super().__init__(message)
 
+
 class InvalidCredentials(Exception):
     pass
 
+
 class RateLimitException(Exception):
     pass
+
 
 class Client:
     access_token = None
@@ -98,7 +101,9 @@ class Client:
         )
 
         if self.num_requests >= REQUEST_LIMIT:
-            raise RateLimitException(f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort.")
+            raise RateLimitException(
+                f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort."
+            )
 
         if self.access_token is None:
             self._refresh_access_token()
