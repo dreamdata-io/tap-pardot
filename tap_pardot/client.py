@@ -54,7 +54,6 @@ class Client:
     business_unit_id = None
 
     get_url = "{}/version/{}/do/query"
-    describe_url = "{}/version/{}/do/describe"
 
     num_requests = 0
 
@@ -154,13 +153,6 @@ class Client:
         if not self.access_token:
             LOGGER.warning("failed to refresh token: %s", response.json())
             raise PardotException(response)
-
-    def describe(self, endpoint, **kwargs):
-        url = (ENDPOINT_BASE + self.describe_url).format(endpoint, self.api_version)
-
-        params = {"format": "json", **kwargs}
-
-        return self._make_request("get", url, params)
 
     def _fetch(self, method, endpoint, format_params, **kwargs):
         base_formatting = [endpoint, self.api_version]
