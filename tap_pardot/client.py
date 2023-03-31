@@ -37,11 +37,14 @@ class PardotException(Exception):
 
         super().__init__(message)
 
+
 class InvalidCredentials(Exception):
     pass
 
+
 class RateLimitException(Exception):
     pass
+
 
 class Client:
     access_token = None
@@ -51,7 +54,6 @@ class Client:
     business_unit_id = None
 
     get_url = "{}/version/{}/do/query"
-    describe_url = "{}/version/{}/do/describe"
 
     num_requests = 0
 
@@ -98,7 +100,9 @@ class Client:
         )
 
         if self.num_requests >= REQUEST_LIMIT:
-            raise RateLimitException(f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort.")
+            raise RateLimitException(
+                f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort."
+            )
 
         if self.access_token is None:
             self._refresh_access_token()
@@ -149,13 +153,6 @@ class Client:
         if not self.access_token:
             LOGGER.warning("failed to refresh token: %s", response.json())
             raise PardotException(response)
-
-    def describe(self, endpoint, **kwargs):
-        url = (ENDPOINT_BASE + self.describe_url).format(endpoint, self.api_version)
-
-        params = {"format": "json", **kwargs}
-
-        return self._make_request("get", url, params)
 
     def _fetch(self, method, endpoint, format_params, **kwargs):
         base_formatting = [endpoint, self.api_version]

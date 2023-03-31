@@ -4,7 +4,7 @@ import singer
 from singer import utils
 
 from tap_pardot.client import Client
-from tap_pardot.sync import sync
+from tap_pardot.sync import sync, sync_properties
 
 LOGGER = singer.get_logger()
 
@@ -26,6 +26,7 @@ def main():
     client = Client(**args.config)
 
     LOGGER.info("Starting sync mode")
+    sync_properties(client)
     sync(client, args.config, args.state)
 
 
