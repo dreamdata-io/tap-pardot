@@ -1,7 +1,7 @@
 import singer
 
 from .streams import STREAM_OBJECTS
-from .client import ENDPOINT_BASE, Client
+from .client import ENDPOINT_BASE, Client, parse_error
 from typing import Dict, List
 
 LOGGER = singer.get_logger()
@@ -21,27 +21,22 @@ def sync(client, config, state):
 
 
 def sync_properties(client: Client):
-    streams = [
-        {
-            "stream": "prospectAccountFields",
-            "path": "prospectAccount/version/4/do/describe",
-            "data_path": ["result", "field"],
-        },
-        {
-            "stream": "customFields",
-            "path": "customField/version/4/do/query",
-            "data_path": ["result", "customField"],
-        },
-    ]
-    for stream in streams:
-        path = stream["path"]
-        data = client._make_request(
+    response = client._make_request(
+        "GET",
+        f"{ENDPOINT_BASE}prospectAccount/version/{client.api_version}/do/describe",
+        params={"format": "json"},
+    )
+    _, code = parse_error(response)
+    if code == 89:
+        # You have requested version 4 of the API, but this account must use version 3
+        client.api_version = 3
+        response = client._make_request(
             "GET",
-            f"{ENDPOINT_BASE}{path}",
+            f"{ENDPOINT_BASE}prospectAccount/version/{client.api_version}/do/describe",
             params={"format": "json"},
         )
-        records = get_data(data, stream["data_path"])
-        singer.write_records(stream["stream"], records)
+    records = get_data(response.json(), ["result", "field"])
+    singer.write_records("prospectAccountFields", records)
 
 
 def get_data(data: Dict, path: List) -> Dict:

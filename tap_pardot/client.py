@@ -90,7 +90,9 @@ class Client:
         jitter=None,
         max_tries=10,
     )
-    def _make_request(self, method, url, params=None, data=None, activity=None):
+    def _make_request(
+        self, method, url, params=None, data=None, activity=None
+    ) -> requests.Response:
         LOGGER.info(
             "%s - Making request to %s endpoint %s, with params %s",
             url,
@@ -113,12 +115,9 @@ class Client:
             method, url, headers=self._get_auth_header(), params=params, data=data
         )
         if response.ok:
-            return response.json()
+            return response
 
         error, code = parse_error(response)
-        if code == 89:
-            # You have requested version 4 of the API, but this account must use version 3
-            self.api_version = 3
         if code == 184:
             self._refresh_access_token()
 
@@ -162,7 +161,14 @@ class Client:
 
         params = {"format": "json", **kwargs}
 
-        return self._make_request(method, url, params)
+        response = self._make_request(method, url, params)
+        _, code = parse_error(response)
+        if code == 89:
+            # You have requested version 4 of the API, but this account must use version 3
+            self.api_version = 3
+            url = (ENDPOINT_BASE + self.get_url).format(*base_formatting)
+            return self._make_request(method, url, params).json()
+        return response.json()
 
     def get(self, endpoint, format_params=None, **kwargs):
         return self._fetch("get", endpoint, format_params, **kwargs)
