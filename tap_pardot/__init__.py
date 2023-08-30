@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
+import sys
 
 import singer
 from singer import utils
 
-from tap_pardot.client import Client
+from tap_pardot.client import Client, InvalidCredentials
 from tap_pardot.sync import sync, sync_properties
 
 LOGGER = singer.get_logger()
@@ -26,7 +27,11 @@ def main():
     client = Client(**args.config)
 
     LOGGER.info("Starting sync mode")
-    sync_properties(client)
+    try:
+        sync_properties(client)
+    except InvalidCredentials as e:
+        LOGGER.exception(e)
+        sys.exit(5)
     sync(client, args.config, args.state)
 
 
