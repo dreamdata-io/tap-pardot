@@ -1,7 +1,7 @@
 import singer
 
 from .streams import STREAM_OBJECTS
-from .client import ENDPOINT_BASE, Client, parse_error
+from .client import ENDPOINT_BASE, Client, parse_error, InvalidCredentials
 from typing import Dict, List
 
 LOGGER = singer.get_logger()
@@ -26,7 +26,10 @@ def sync_properties(client: Client):
         f"{ENDPOINT_BASE}prospectAccount/version/{client.api_version}/do/describe",
         params={"format": "json"},
     )
-    _, code = parse_error(response)
+    err, code = parse_error(response)
+    if code == 49 or code == 182:
+        # https://developer.salesforce.com/docs/marketing/pardot/guide/error-codes.html?q=errors#numerical-list-of-error-codes
+        raise InvalidCredentials(err)
     if code == 89:
         # You have requested version 4 of the API, but this account must use version 3
         client.api_version = 3
