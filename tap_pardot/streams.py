@@ -168,9 +168,6 @@ class CreatedAtReplicationStream(Stream):
     replication_keys = ["created_at"]
     replication_method = "INCREMENTAL"
 
-    def get_default_start(self):
-        return (datetime.now() - timedelta(days=10 * 365)).strftime("%Y-%m-%d %H:%M:%S")
-
     def get_params(self):
         return {
             "created_after": self.get_bookmark(),
@@ -442,6 +439,15 @@ class VisitorActivities(CreatedAtReplicationStream):
         )
 
         return p
+
+    def sync_page(self):
+        for rec in self.get_records():
+            yield rec
+            current_bookmark_value = rec[self.replication_keys[0]]
+            if self._last_bookmark_value is None:
+                self._last_bookmark_value = current_bookmark_value
+            if current_bookmark_value > self._last_bookmark_value:
+                self.update_bookmark(current_bookmark_value)
 
     def sync(self):
         self.pre_sync()
