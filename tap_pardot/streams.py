@@ -427,12 +427,15 @@ class VisitorActivities(CreatedAtReplicationStream):
 
     def get_params(self):
         p = CreatedAtReplicationStream.get_params(self)
+        try:
+            created_after_dt = datetime.strptime(p["created_after"], self.datetime_format)
+        except ValueError:
+            p["created_after"] += " 00:00:00"
+            created_after_dt = datetime.strptime(p["created_after"], self.datetime_format)
 
         # In order to avoid timeouts, we need to drastically limit the amount of activities that we
         # ask Pardot to process per request.
-        cb = datetime.strptime(p["created_after"], self.datetime_format) + timedelta(
-            days=7
-        )
+        cb = created_after_dt + timedelta(days=7)
 
         p.update(
             type=self.filter_types, created_before=cb.strftime(self.datetime_format)
