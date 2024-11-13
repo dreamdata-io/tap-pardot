@@ -4,6 +4,7 @@ import traceback
 import singer
 import sys
 
+from tap_pardot import exceptions
 from tap_pardot.client import InvalidCredentials
 
 
@@ -84,10 +85,8 @@ class Stream:
             self._last_bookmark_value = current_bookmark_value
 
         if current_bookmark_value < self._last_bookmark_value:
-            raise Exception(
-                "Detected out of order data. stream name: {} Current bookmark value {} is less than last bookmark value {}".format(
-                    self.stream_name, current_bookmark_value, self._last_bookmark_value
-                )
+            raise exceptions.TapPardotUnorderedDataException(
+                f"Current bookmark value {current_bookmark_value} is less than last bookmark value {self._last_bookmark_value}. stream name: {self.stream_name}"
             )
 
         self._last_bookmark_value = current_bookmark_value
@@ -360,14 +359,15 @@ class ChildStream(ComplexBookmarkStream):
         data = self.client.post(self.endpoint, **params)
         self.update_bookmark("offset", params.get("offset", 0) + 200)
 
+        result = data.get("result")
         if (
-            data["result"] is None
-            or data["result"].get("total_results") == 0
-            or data["result"].get(self.data_key) == None
+            result is None
+            or result.get("total_results") == 0
+            or result.get(self.data_key) is None
         ):
             return []
 
-        records = data["result"][self.data_key]
+        records = result.get(self.data_key, [])
         if isinstance(records, dict):
             records = [records]
 
@@ -716,11 +716,20 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
     def get_params(self):
         """ListMemberships use id to paginate through, so we override ChildStream
         behavior."""
+
+        # In order to avoid timeouts, we need to drastically limit the amount of memberships that we
+        # ask Pardot to process per request.
+        updated_after = self.get_bookmark("updated_at") or self.config["start_date"]
+        try:
+            updated_before = datetime.strptime(updated_after, "%Y-%m-%d %H:%M:%S") + timedelta(days=7)
+        except ValueError:
+            updated_before = datetime.strptime(updated_after, "%Y-%m-%d") + timedelta(days=7)
+
         return {
             # Even though we can't sort by updated_at, we can
             # filter by updated_after
-            "updated_after": self.get_bookmark("updated_at")
-            or self.config["start_date"],
+            "updated_after": updated_after,
+            "updated_before": updated_before.strftime("%Y-%m-%d %H:%M:%S"),
             "id_greater_than": self.get_bookmark("id") or 0,
             "sort_by": "id",
             "sort_order": "ascending",
@@ -747,6 +756,31 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
             self.max_updated_at = max(self.max_updated_at, rec["updated_at"])
             self.update_bookmark("id", rec["id"])
             yield rec
+
+    def get_records(self, *parent_ids):
+        """ListMemberships can be super heavy apparently, so we need to partition requests by date to mitigate"""
+        while True:
+            params = {
+                self.parent_id_param: ",".join([str(x) for x in parent_ids]),
+                **self.get_params(),
+            }
+
+            data = self.client.post(self.endpoint, **params)
+            self.update_bookmark("updated_at", params.get("updated_before", params.get("updated_after")))
+
+            result = data.get("result")
+            if (
+                result is None
+                or result.get("total_results") == 0
+                or result.get(self.data_key) is None
+            ):
+                return
+
+            records = result.get(self.data_key, [])
+            if isinstance(records, dict):
+                records = [records]
+
+            yield from records
 
 
 class Campaigns(UpdatedAtSortByIdReplicationStream):
