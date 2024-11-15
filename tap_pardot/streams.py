@@ -4,6 +4,7 @@ import traceback
 import singer
 import sys
 
+from tap_pardot import exceptions
 from tap_pardot.client import InvalidCredentials
 
 
@@ -84,10 +85,8 @@ class Stream:
             self._last_bookmark_value = current_bookmark_value
 
         if current_bookmark_value < self._last_bookmark_value:
-            raise Exception(
-                "Detected out of order data. stream name: {} Current bookmark value {} is less than last bookmark value {}".format(
-                    self.stream_name, current_bookmark_value, self._last_bookmark_value
-                )
+            raise exceptions.TapPardotUnorderedDataException(
+                f"Current bookmark value {current_bookmark_value} is less than last bookmark value {self._last_bookmark_value}. stream name: {self.stream_name}"
             )
 
         self._last_bookmark_value = current_bookmark_value
@@ -360,14 +359,15 @@ class ChildStream(ComplexBookmarkStream):
         data = self.client.post(self.endpoint, **params)
         self.update_bookmark("offset", params.get("offset", 0) + 200)
 
+        result = data.get("result")
         if (
-            data["result"] is None
-            or data["result"].get("total_results") == 0
-            or data["result"].get(self.data_key) == None
+            result is None
+            or result.get("total_results") == 0
+            or result.get(self.data_key) is None
         ):
             return []
 
-        records = data["result"][self.data_key]
+        records = result.get(self.data_key, [])
         if isinstance(records, dict):
             records = [records]
 
@@ -719,11 +719,15 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
     def get_params(self):
         """ListMemberships use id to paginate through, so we override ChildStream
         behavior."""
+
+        # In order to avoid timeouts, we need to drastically limit the amount of memberships that we
+        # ask Pardot to process per request.
+        updated_after = self.get_bookmark("updated_at") or self.config["start_date"]
         return {
             # Even though we can't sort by updated_at, we can
             # filter by updated_after
-            "updated_after": self.get_bookmark("updated_at")
-            or self.config["start_date"],
+            "updated_after": updated_after,
+            "updated_before": add_timedelta(updated_after, timedelta(days=7)),
             "id_greater_than": self.get_bookmark("id") or 0,
             "sort_by": "id",
             "sort_order": "ascending",
@@ -750,6 +754,58 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
             self.max_updated_at = max(self.max_updated_at, rec["updated_at"])
             self.update_bookmark("id", rec["id"])
             yield rec
+
+    def get_records(self, parent_id):
+        """ListMemberships can be super heavy apparently, so we need to partition requests by date to mitigate"""
+        params = {
+            self.parent_id_param: parent_id,
+            **self.get_params(),
+        }
+
+        while True:
+            if is_after(params.get("updated_after"), datetime.now()):
+                return
+
+            data = self.client.post(self.endpoint, **params)
+
+            result = data.get("result", {})
+            records = result.get(self.data_key, [])
+            total_results = result.get("total_results", 0)
+            offset = params.get("offset", 0)
+
+            if 200 > offset and len(records) >= 200:
+                params["offset"] = offset + 200
+            else:
+                updated_before = params.get("updated_before")
+                params["updated_after"] = updated_before
+                params["updated_before"] = add_timedelta(updated_before, timedelta(days=7))
+                # params["updated_after"] = add_timedelta(params.get("updated_after"), timedelta(days=7))
+                params.pop("offset", 0)
+
+            if isinstance(records, dict):
+                records = [records]
+
+            yield from records
+
+
+def add_timedelta(dt_string: str, td: timedelta) -> str:
+    try:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d")
+
+    dt = dt + td
+
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def is_after(dt_string: str, target_dt: datetime):
+    try:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d")
+
+    return dt > target_dt
 
 
 class Campaigns(UpdatedAtSortByIdReplicationStream):
