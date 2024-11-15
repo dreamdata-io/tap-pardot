@@ -11,6 +11,7 @@ ENDPOINT_BASE = "https://pi.pardot.com/api/"
 # Smallest Pardot package has a 25k request limit, so we leave some room
 # for other integrations to function.
 REQUEST_LIMIT = 20000
+PAGE_SIZE = 200
 
 
 def parse_error(response: requests.Response) -> Tuple[str, int]:
