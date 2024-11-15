@@ -5,7 +5,7 @@ import singer
 import sys
 
 from tap_pardot import exceptions
-from tap_pardot.client import InvalidCredentials
+from tap_pardot.client import InvalidCredentials, PAGE_SIZE
 
 
 LOGGER = singer.get_logger()
@@ -773,8 +773,8 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
             total_results = result.get("total_results", 0)
             offset = params.get("offset", 0)
 
-            if 200 > offset and len(records) >= 200:
-                params["offset"] = offset + 200
+            if total_results > offset and len(records) >= PAGE_SIZE:
+                params["offset"] = offset + PAGE_SIZE
             else:
                 updated_before = params.get("updated_before")
                 params["updated_after"] = updated_before
