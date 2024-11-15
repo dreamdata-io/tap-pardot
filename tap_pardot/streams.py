@@ -720,16 +720,11 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
         # In order to avoid timeouts, we need to drastically limit the amount of memberships that we
         # ask Pardot to process per request.
         updated_after = self.get_bookmark("updated_at") or self.config["start_date"]
-        try:
-            updated_before = datetime.strptime(updated_after, "%Y-%m-%d %H:%M:%S") + timedelta(days=7)
-        except ValueError:
-            updated_before = datetime.strptime(updated_after, "%Y-%m-%d") + timedelta(days=7)
-
         return {
             # Even though we can't sort by updated_at, we can
             # filter by updated_after
             "updated_after": updated_after,
-            "updated_before": updated_before.strftime("%Y-%m-%d %H:%M:%S"),
+            "updated_before": add_timedelta(updated_after, timedelta(days=7)),
             "id_greater_than": self.get_bookmark("id") or 0,
             "sort_by": "id",
             "sort_order": "ascending",
@@ -757,30 +752,57 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
             self.update_bookmark("id", rec["id"])
             yield rec
 
-    def get_records(self, *parent_ids):
+    def get_records(self, parent_id):
         """ListMemberships can be super heavy apparently, so we need to partition requests by date to mitigate"""
+        params = {
+            self.parent_id_param: parent_id,
+            **self.get_params(),
+        }
+
         while True:
-            params = {
-                self.parent_id_param: ",".join([str(x) for x in parent_ids]),
-                **self.get_params(),
-            }
-
-            data = self.client.post(self.endpoint, **params)
-            self.update_bookmark("updated_at", params.get("updated_before", params.get("updated_after")))
-
-            result = data.get("result")
-            if (
-                result is None
-                or result.get("total_results") == 0
-                or result.get(self.data_key) is None
-            ):
+            if is_after(params.get("updated_after"), datetime.now()):
                 return
 
+            data = self.client.post(self.endpoint, **params)
+
+            result = data.get("result", {})
             records = result.get(self.data_key, [])
+            total_results = result.get("total_results", 0)
+            offset = params.get("offset", 0)
+
+            if 200 > offset and len(records) >= 200:
+                params["offset"] = offset + 200
+            else:
+                updated_before = params.get("updated_before")
+                params["updated_after"] = updated_before
+                params["updated_before"] = add_timedelta(updated_before, timedelta(days=7))
+                # params["updated_after"] = add_timedelta(params.get("updated_after"), timedelta(days=7))
+                params.pop("offset", 0)
+
             if isinstance(records, dict):
                 records = [records]
 
             yield from records
+
+
+def add_timedelta(dt_string: str, td: timedelta) -> str:
+    try:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d")
+
+    dt = dt + td
+
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def is_after(dt_string: str, target_dt: datetime):
+    try:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d %H:%M:%S")
+    except ValueError:
+        dt = datetime.strptime(dt_string, "%Y-%m-%d")
+
+    return dt > target_dt
 
 
 class Campaigns(UpdatedAtSortByIdReplicationStream):
