@@ -102,9 +102,15 @@ class Client:
             params,
         )
 
-        if self.num_requests >= REQUEST_LIMIT:
+        # Change limit for getcenter_com to 40k until we fix it for all accounts
+        # account_id: 4f3fdfc4-c574-43d1-87fd-2a235c4fe6e7
+        request_limit = REQUEST_LIMIT
+        if self.business_unit_id == '0Uv4N000000blOnSAI':
+            request_limit = 40000
+
+        if self.num_requests >= request_limit:
             raise RateLimitException(
-                f"Reach configured limit of {REQUEST_LIMIT} daily quota usage. Abort."
+                f"Reach configured limit of {request_limit} daily quota usage. Abort."
             )
 
         if self.access_token is None:
