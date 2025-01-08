@@ -448,9 +448,10 @@ class VisitorActivities(CreatedAtReplicationStream):
             yield rec
             current_bookmark_value = rec[self.replication_keys[0]]
             if self._last_bookmark_value is None:
-                self._last_bookmark_value = current_bookmark_value
+                self._last_bookmark_value = self.get_bookmark()
             if current_bookmark_value > self._last_bookmark_value:
                 self.update_bookmark(current_bookmark_value)
+                self._last_bookmark_value = current_bookmark_value
 
     def sync(self):
         self.pre_sync()
