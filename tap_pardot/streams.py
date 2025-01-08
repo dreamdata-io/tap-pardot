@@ -428,10 +428,14 @@ class VisitorActivities(CreatedAtReplicationStream):
     def get_params(self):
         p = CreatedAtReplicationStream.get_params(self)
         try:
-            created_after_dt = datetime.strptime(p["created_after"], self.datetime_format)
+            created_after_dt = datetime.strptime(
+                p["created_after"], self.datetime_format
+            )
         except ValueError:
             p["created_after"] += " 00:00:00"
-            created_after_dt = datetime.strptime(p["created_after"], self.datetime_format)
+            created_after_dt = datetime.strptime(
+                p["created_after"], self.datetime_format
+            )
 
         # In order to avoid timeouts, we need to drastically limit the amount of activities that we
         # ask Pardot to process per request.
@@ -448,9 +452,10 @@ class VisitorActivities(CreatedAtReplicationStream):
             yield rec
             current_bookmark_value = rec[self.replication_keys[0]]
             if self._last_bookmark_value is None:
-                self._last_bookmark_value = current_bookmark_value
+                self._last_bookmark_value = self.get_bookmark()
             if current_bookmark_value > self._last_bookmark_value:
                 self.update_bookmark(current_bookmark_value)
+                self._last_bookmark_value = current_bookmark_value
 
     def sync(self):
         self.pre_sync()
@@ -778,7 +783,9 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
             else:
                 updated_before = params.get("updated_before")
                 params["updated_after"] = updated_before
-                params["updated_before"] = add_timedelta(updated_before, timedelta(days=7))
+                params["updated_before"] = add_timedelta(
+                    updated_before, timedelta(days=7)
+                )
                 # params["updated_after"] = add_timedelta(params.get("updated_after"), timedelta(days=7))
                 params.pop("offset", 0)
 
