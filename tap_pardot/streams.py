@@ -784,7 +784,7 @@ class ListMemberships(ChildStream, NoUpdatedAtSortingStream):
                 updated_before = params.get("updated_before")
                 params["updated_after"] = updated_before
                 params["updated_before"] = add_timedelta(
-                    updated_before, timedelta(days=7)
+                    updated_before, timedelta(days=60)
                 )
                 # params["updated_after"] = add_timedelta(params.get("updated_after"), timedelta(days=7))
                 params.pop("offset", 0)
