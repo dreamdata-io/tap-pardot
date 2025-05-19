@@ -526,7 +526,7 @@ class Prospects(UpdatedAtReplicationStream):
 
         while True:
             data = self.client.get(self.endpoint, **params)
-            records = data["result"].get(self.data_key)
+            records = data.get("result", {}).get(self.data_key)
 
             if not records:
                 break
