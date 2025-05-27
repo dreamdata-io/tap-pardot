@@ -1,4 +1,5 @@
 import backoff
+import simplejson
 import requests
 import singer
 from typing import Dict, Tuple, cast
@@ -15,16 +16,19 @@ PAGE_SIZE = 200
 
 
 def parse_error(response: requests.Response) -> Tuple[str, int]:
-    error: str
-    code: int
     if response.headers.get("content-type") != "application/json":
-        code = response.status_code
-        error = "PardotAPIError: " + response.text
-    else:
-        data: Dict = response.json()
-        code = cast(int, data.get("@attributes", {}).get("err_code"))
-        error = cast(str, data.get("err"))
+        return f"PardotAPIError: {response.text[:1000]}", response.status_code
 
+    try:
+        data: Dict = response.json()
+    except simplejson.JSONDecodeError:
+        return (
+            f"PardotAPIError: Failed to decode JSON: {response.text[:1000]}",
+            response.status_code,
+        )
+
+    code = cast(int, data.get("@attributes", {}).get("err_code", 0))
+    error = cast(str, data.get("err", "Unknown error"))
     return error, code
 
 
@@ -105,7 +109,7 @@ class Client:
         # Change limit for getcenter_com to 40k until we fix it for all accounts
         # account_id: 4f3fdfc4-c574-43d1-87fd-2a235c4fe6e7
         request_limit = REQUEST_LIMIT
-        if self.business_unit_id == '0Uv4N000000blOnSAI':
+        if self.business_unit_id == "0Uv4N000000blOnSAI":
             request_limit = 40000
 
         if self.num_requests >= request_limit:
