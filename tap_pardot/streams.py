@@ -265,6 +265,7 @@ class NoUpdatedAtSortingStream(ComplexBookmarkStream):
             "id_greater_than": self.get_bookmark("id"),
             "sort_by": "id",
             "sort_order": "ascending",
+            "limit": 100,
         }
 
     def sync_page(self):
@@ -693,6 +694,9 @@ class Visits(ChildStream, NoUpdatedAtSortingStream):
         This is handled in ChildStream base class.
         """
         for rec in self.get_records(*parent_ids):
+            if not isinstance(rec, dict):
+                LOGGER.warning("Skipping non-dict record: %s", rec)
+                continue
             if rec["updated_at"] <= self.last_updated_at:
                 continue
             self.fix_page_views(rec)
