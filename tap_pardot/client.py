@@ -57,6 +57,7 @@ class Client:
     get_url = "{}/version/{}/do/query"
 
     num_requests = 0
+    request_limit = REQUEST_LIMIT
 
     def __init__(
         self,
@@ -67,6 +68,7 @@ class Client:
         access_token=None,
         **kwargs,
     ):
+        self.request_limit = self._set_limit()
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.client_id = client_id
@@ -102,16 +104,8 @@ class Client:
             params,
         )
 
-        # Change limit for getcenter_com to 40k until we fix it for all accounts
-        # account_id: 4f3fdfc4-c574-43d1-87fd-2a235c4fe6e7
-        request_limit = REQUEST_LIMIT
-        if self.business_unit_id == '0Uv4N000000blOnSAI':
-            request_limit = 40000
-
-        if self.num_requests >= request_limit:
-            raise RateLimitException(
-                f"Reach configured limit of {request_limit} daily quota usage. Abort."
-            )
+        if self.num_requests >= self.request_limit:
+            raise RateLimitException("Reach daily quota usage limit. Abort.")
 
         if self.access_token is None:
             self._refresh_access_token()
@@ -182,3 +176,20 @@ class Client:
 
     def post(self, endpoint, format_params=None, **kwargs):
         return self._fetch("post", endpoint, format_params, **kwargs)
+
+    def _set_limit(self):
+        response = self._make_request(
+            "get",
+            f"{ENDPOINT_BASE}v5/objects/account?fields=maximumDailyApiCalls,apiCallsUsed",
+        )
+        if response.ok:
+            return response
+
+        try:
+            data = response.json()
+            maximum_calls = data.get("maximumDailyApiCalls", REQUEST_LIMIT)
+            used_calls = data.get("apiCallsUsed", 0)
+            limit = max(0, maximum_calls - used_calls)
+            self.request_limit = limit
+        except (ValueError, KeyError):
+            self.request_limit = REQUEST_LIMIT
