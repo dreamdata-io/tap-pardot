@@ -68,7 +68,6 @@ class Client:
         access_token=None,
         **kwargs,
     ):
-        self.request_limit = self._set_limit()
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.client_id = client_id
@@ -76,6 +75,7 @@ class Client:
         self.business_unit_id = business_unit_id
         self.requests_session = requests.Session()
         self.api_version = 4
+        self.request_limit = self._set_limit()
 
     def _get_auth_header(self):
         return {
