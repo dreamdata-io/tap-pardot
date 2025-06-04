@@ -68,7 +68,6 @@ class Client:
         access_token=None,
         **kwargs,
     ):
-        self.request_limit = self._set_limit()
         self.access_token = access_token
         self.refresh_token = refresh_token
         self.client_id = client_id
@@ -76,6 +75,7 @@ class Client:
         self.business_unit_id = business_unit_id
         self.requests_session = requests.Session()
         self.api_version = 4
+        self._set_limit()
 
     def _get_auth_header(self):
         return {
@@ -182,14 +182,18 @@ class Client:
             "get",
             f"{ENDPOINT_BASE}v5/objects/account?fields=maximumDailyApiCalls,apiCallsUsed",
         )
-        if response.ok:
-            return response
+        if not response.ok:
+            self.request_limit = default_limit()
 
         try:
             data = response.json()
             maximum_calls = data.get("maximumDailyApiCalls", REQUEST_LIMIT)
             used_calls = data.get("apiCallsUsed", 0)
             limit = max(0, maximum_calls - used_calls)
-            self.request_limit = limit
+            self.request_limit = int(limit * 0.8)
         except (ValueError, KeyError):
-            self.request_limit = REQUEST_LIMIT
+            self.request_limit = default_limit()
+
+
+def default_limit():
+    return int(REQUEST_LIMIT * 0.8)
