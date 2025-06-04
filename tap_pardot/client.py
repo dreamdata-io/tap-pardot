@@ -182,8 +182,8 @@ class Client:
             "get",
             f"{ENDPOINT_BASE}v5/objects/account?fields=maximumDailyApiCalls,apiCallsUsed",
         )
-        if response.ok:
-            return response
+        if not response.ok:
+            return REQUEST_LIMIT
 
         try:
             data = response.json()
