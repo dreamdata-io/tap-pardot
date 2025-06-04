@@ -183,13 +183,17 @@ class Client:
             f"{ENDPOINT_BASE}v5/objects/account?fields=maximumDailyApiCalls,apiCallsUsed",
         )
         if not response.ok:
-            self.request_limit = REQUEST_LIMIT
+            self.request_limit = default_limit()
 
         try:
             data = response.json()
             maximum_calls = data.get("maximumDailyApiCalls", REQUEST_LIMIT)
             used_calls = data.get("apiCallsUsed", 0)
             limit = max(0, maximum_calls - used_calls)
-            self.request_limit = limit
+            self.request_limit = int(limit * 0.8)
         except (ValueError, KeyError):
-            self.request_limit = REQUEST_LIMIT
+            self.request_limit = default_limit()
+
+
+def default_limit():
+    return int(REQUEST_LIMIT * 0.8)
