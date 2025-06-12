@@ -191,7 +191,7 @@ class Client:
             used_calls = data.get("apiCallsUsed", 0)
             limit = max(0, maximum_calls - used_calls)
             self.request_limit = int(limit * 0.8)
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, PardotException):
             self.request_limit = default_limit()
 
 
